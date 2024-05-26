@@ -2,7 +2,8 @@ name: StackOverflow Daily Login
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # Runs every day at 8:00 AM UTC
+    - cron: '0 8 * * *'  # This triggers the workflow at 7:00 AM UTC daily
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
   login:
@@ -22,36 +23,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4
 
-      - name: Run login script
+      - name: Create run_at_random_time.sh
+        run: |
+          echo '#!/bin/bash' > run_at_random_time.sh
+          echo '' >> run_at_random_time.sh
+          echo '# Generate a random minute between 0 and 59' >> run_at_random_time.sh
+          echo 'RANDOM_MINUTE=$(shuf -i 0-59 -n 1)' >> run_at_random_time.sh
+          echo 'echo "Generated random minute: $RANDOM_MINUTE"' >> run_at_random_time.sh
+          echo '' >> run_at_random_time.sh
+          echo '# Wait until the random minute within the 7 AM hour' >> run_at_random_time.sh
+          echo 'SLEEP_TIME=$(( (60 - $(date +%M) + RANDOM_MINUTE) % 60 * 60 ))' >> run_at_random_time.sh
+          echo 'echo "Sleeping for $SLEEP_TIME seconds..."' >> run_at_random_time.sh
+          echo 'sleep $SLEEP_TIME' >> run_at_random_time.sh
+          echo '' >> run_at_random_time.sh
+          echo '# Run the login script' >> run_at_random_time.sh
+          echo 'python login_to_stackoverflow.py' >> run_at_random_time.sh
+          chmod +x run_at_random_time.sh
+
+      - name: Run at 8:00 AM local time
         env:
           STACKOVERFLOW_EMAIL: ${{ secrets.STACKOVERFLOW_EMAIL }}
           STACKOVERFLOW_PASSWORD: ${{ secrets.STACKOVERFLOW_PASSWORD }}
-        run: |
-          python - <<EOF
-          import requests
-          from bs4 import BeautifulSoup
-
-          username = '${{ secrets.STACKOVERFLOW_EMAIL }}'
-          password = '${{ secrets.STACKOVERFLOW_PASSWORD }}'
-
-          login_url = 'https://stackoverflow.com/users/login'
-          session = requests.Session()
-
-          response = session.get(login_url)
-          soup = BeautifulSoup(response.text, 'html.parser')
-
-          fkey = soup.find('input', {'name': 'fkey'})['value']
-
-          payload = {
-              'fkey': fkey,
-              'email': username,
-              'password': password
-          }
-
-          login_response = session.post(login_url, data=payload)
-
-          if login_response.url == 'https://stackoverflow.com/':
-              print('Login successful!')
-          else:
-              print('Login failed.')
-          EOF
+        run: ./run_at_random_time.sh
