@@ -1,0 +1,57 @@
+name: StackOverflow Daily Login
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Runs every day at 8:00 AM UTC
+
+jobs:
+  login:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
+
+      - name: Run login script
+        env:
+          STACKOVERFLOW_EMAIL: ${{ secrets.STACKOVERFLOW_EMAIL }}
+          STACKOVERFLOW_PASSWORD: ${{ secrets.STACKOVERFLOW_PASSWORD }}
+        run: |
+          python - <<EOF
+          import requests
+          from bs4 import BeautifulSoup
+
+          username = '${{ secrets.STACKOVERFLOW_EMAIL }}'
+          password = '${{ secrets.STACKOVERFLOW_PASSWORD }}'
+
+          login_url = 'https://stackoverflow.com/users/login'
+          session = requests.Session()
+
+          response = session.get(login_url)
+          soup = BeautifulSoup(response.text, 'html.parser')
+
+          fkey = soup.find('input', {'name': 'fkey'})['value']
+
+          payload = {
+              'fkey': fkey,
+              'email': username,
+              'password': password
+          }
+
+          login_response = session.post(login_url, data=payload)
+
+          if login_response.url == 'https://stackoverflow.com/':
+              print('Login successful!')
+          else:
+              print('Login failed.')
+          EOF
